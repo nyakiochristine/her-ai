@@ -1,0 +1,11 @@
+.env
+.env.example
+session_state.json
+projects/**/raw/
+projects/**/working/
+projects/**/deliverables/
+*.mov
+*.mp4
+*.mp3
+__pycache__/
+.DS_Store
