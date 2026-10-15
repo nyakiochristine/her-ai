@@ -26,16 +26,21 @@ def wrap(draw: ImageDraw.ImageDraw, text: str, use_font, max_width: int) -> list
     return lines
 
 
-def caption_image(path: Path, width: int, height: int, text: str, margin: int, font_path: Path) -> None:
-    image = Image.new("RGBA", (width, height), (0, 0, 0, 0)); draw = ImageDraw.Draw(image)
+def caption_image(path: Path, width: int, text: str, font_path: Path) -> tuple[int, int]:
+    # Render only the caption box, not a transparent full-video frame. This
+    # greatly reduces FFmpeg's per-frame compositing work.
+    box_width = width - 128
+    image = Image.new("RGBA", (box_width, 10), (0, 0, 0, 0)); draw = ImageDraw.Draw(image)
     use_font = ImageFont.truetype(str(font_path), size=38)
-    lines = wrap(draw, text, use_font, width - 160)
-    line_height = 50; box_height = len(lines) * line_height + 42; y = height - margin - box_height
-    draw.rounded_rectangle((64, y, width - 64, y + box_height), radius=20, fill=(13, 64, 59, 220))
+    lines = wrap(draw, text, use_font, box_width - 32)
+    line_height = 50; box_height = len(lines) * line_height + 42
+    image = Image.new("RGBA", (box_width, box_height), (0, 0, 0, 0)); draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((0, 0, box_width, box_height), radius=20, fill=(13, 64, 59, 220))
     for index, line in enumerate(lines):
         text_width = draw.textlength(line, font=use_font)
-        draw.text(((width - text_width) / 2, y + 20 + index * line_height), line, font=use_font, fill="white")
+        draw.text(((box_width - text_width) / 2, 20 + index * line_height), line, font=use_font, fill="white")
     image.save(path)
+    return box_width, box_height
 
 
 def main() -> None:
@@ -51,12 +56,13 @@ def main() -> None:
         temp = Path(tmp); command = ["ffmpeg", "-y", "-i", str(args.input)]; filters = []; previous = "0:v"
         for index, cue in enumerate(cues, 1):
             image_path = temp / f"caption-{index:02d}.png"
-            caption_image(image_path, width, height, cue.get("caption_text", cue["voice_text"]), margin, font_path)
+            box_width, box_height = caption_image(image_path, width, cue.get("caption_text", cue["voice_text"]), font_path)
             command.extend(["-loop", "1", "-i", str(image_path)])
             output = f"v{index}"
-            filters.append(f"[{previous}][{index}:v]overlay=0:0:enable='between(t,{cue['start']},{cue['end']})'[{output}]")
+            y = height - margin - box_height
+            filters.append(f"[{previous}][{index}:v]overlay=64:{y}:enable='between(t,{cue['start']},{cue['end']})'[{output}]")
             previous = output
-        command.extend(["-filter_complex", ";".join(filters), "-map", f"[{previous}]", "-map", "0:a?", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(args.out)])
+        command.extend(["-filter_complex", ";".join(filters), "-map", f"[{previous}]", "-map", "0:a?", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(args.out)])
         subprocess.run(command, check=True)
     print(f"Wrote {args.out}")
 

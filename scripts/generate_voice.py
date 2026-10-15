@@ -37,10 +37,24 @@ def main() -> None:
         timeline.append({"id": f"{i:02d}", "start": round(now, 3), "end": round(now + clip_duration, 3), "voice_text": sentence, "caption_text": sentence})
         now += clip_duration + args.pause
         clips.append(output)
+    # Keep the exported narration and caption timeline in sync by embedding the
+    # same pause that was included in the cue timings between sentences.
+    pause_clip = args.out_dir / "pause.mp3"
+    if len(clips) > 1 and args.pause > 0:
+        subprocess.run([
+            "ffmpeg", "-y", "-f", "lavfi", "-i",
+            "anullsrc=channel_layout=stereo:sample_rate=44100",
+            "-t", str(args.pause), "-c:a", "libmp3lame", str(pause_clip),
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    manifest_entries = []
+    for index, clip in enumerate(clips):
+        manifest_entries.append(f"file '{clip.resolve()}'")
+        if index < len(clips) - 1 and pause_clip.exists():
+            manifest_entries.append(f"file '{pause_clip.resolve()}'")
     manifest = args.out_dir / "concat.txt"
-    manifest.write_text("\n".join(f"file '{p.resolve()}'" for p in clips) + "\n", encoding="utf-8")
+    manifest.write_text("\n".join(manifest_entries) + "\n", encoding="utf-8")
     narration = args.out_dir / "narration.mp3"
-    subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(manifest), "-c", "copy", str(narration)], check=True)
+    subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(manifest), "-c:a", "libmp3lame", str(narration)], check=True)
     timeline_path = args.timeline or args.script.parent / "timeline.json"
     timeline_path.write_text(json.dumps(timeline, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Wrote {narration} and {timeline_path}. Review pronunciation before recording.")
