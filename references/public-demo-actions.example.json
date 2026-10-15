@@ -1,0 +1,9 @@
+[
+  {"wait": 2},
+  {"click": "text=Try it"},
+  {"wait": 1},
+  {"type": {"selector": "textarea", "text": "Explain this feature in one sentence.", "delay_ms": 55}},
+  {"wait": 3},
+  {"scroll": 450},
+  {"wait": 2}
+]
