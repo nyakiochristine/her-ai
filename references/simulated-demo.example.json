@@ -1,0 +1,11 @@
+{
+  "mode": "simulated",
+  "tool_reference": "Generic AI chat interface",
+  "disclosure": "Illustrative simulation",
+  "title": "How AI memory works",
+  "prompt": "Today for lunch I had bread with avocado and an egg.",
+  "follow_up": "What did I have for lunch today?",
+  "simulated_response": "I do not have that information in this new conversation.",
+  "background": "dark-green",
+  "format": "linkedin"
+}

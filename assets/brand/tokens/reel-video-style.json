@@ -1,0 +1,30 @@
+{
+  "backgrounds": {
+    "orange": "#d96a3a",
+    "light-green": "#bee9d4",
+    "dark-green": "#0d403b",
+    "bright-green": "#28b87a",
+    "beige": "#f1e9df"
+  },
+  "text": {
+    "on-light": "#0d403b",
+    "on-dark": "#f1e9df",
+    "caption": "#ffffff"
+  },
+  "captions": {
+    "font": "DM-Sans-Variable.ttf",
+    "font_size": 38,
+    "line_height": 50,
+    "horizontal_margin": 64,
+    "vertical_padding": 20,
+    "horizontal_padding": 16,
+    "corner_radius": 20,
+    "background": "#0d403b",
+    "background_opacity": 220,
+    "screen_clearance": 24,
+    "bottom_safe_margin": {
+      "instagram": 250,
+      "linkedin": 140
+    }
+  }
+}

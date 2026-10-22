@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
 """Compose a vertical, screen-led Her AI reel plus a short end card."""
 from __future__ import annotations
-import argparse, random, subprocess, tempfile
+import argparse, json, random, subprocess, tempfile
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-COLORS = {
-    "orange": "#d96a3a",
-    "light-green": "#bee9d4",
-    "dark-green": "#0d403b",
-    # Approved Her AI reel direction: energetic green with a subtle paper-like texture.
-    "bright-green": "#2cbd7a",
-}
+ROOT = Path(__file__).resolve().parents[1]
+VIDEO_STYLE = json.loads((ROOT / "assets/brand/tokens/reel-video-style.json").read_text(encoding="utf-8"))
+COLORS = VIDEO_STYLE["backgrounds"]
 PROFILES = {
-    "instagram": {"width": 1080, "height": 1920, "panel_w": 920, "panel_h": 1300, "panel_y": 340, "title_y": 155, "brand_y": 720, "cta_y": 900},
-    "linkedin": {"width": 1080, "height": 1350, "panel_w": 900, "panel_h": 800, "panel_y": 290, "title_y": 105, "brand_y": 470, "cta_y": 650},
+    # Reserve a fixed caption safe area beneath the framed demo.
+    "instagram": {"width": 1080, "height": 1920, "panel_w": 920, "panel_h": 1100, "panel_y": 340, "title_y": 155, "brand_y": 720, "cta_y": 900},
+    "linkedin": {"width": 1080, "height": 1350, "panel_w": 900, "panel_h": 740, "panel_y": 290, "title_y": 105, "brand_y": 470, "cta_y": 650},
 }
 FPS = 30
 
@@ -65,13 +62,12 @@ def make_background(path: Path, width: int, height: int, color: str) -> None:
 
 def make_overlays(temp: Path, profile: dict, color: str, title: str, cta: str, logo: Path) -> tuple[Path, Path, Path]:
     width, height = profile["width"], profile["height"]
-    root = Path(__file__).resolve().parents[1]
-    display_font = root / "assets/fonts/MyeongjoExt-Regular.ttf"
-    body_font = root / "assets/fonts/DM-Sans-Variable.ttf"
+    display_font = ROOT / "assets/fonts/MyeongjoExt-Regular.ttf"
+    body_font = ROOT / "assets/fonts/DM-Sans-Variable.ttf"
     title_image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     title_draw = ImageDraw.Draw(title_image)
     # Dark-green cards need light type; dark type remains readable on the other brand colours.
-    ink = "#f1e9df" if color.lower() == "#0d403b" else "#0d403b"
+    ink = VIDEO_STYLE["text"]["on-dark"] if color.lower() == COLORS["dark-green"] else VIDEO_STYLE["text"]["on-light"]
     centered(title_draw, profile["title_y"], title, font(display_font, 56), ink)
     title_path = temp / "title.png"; title_image.save(title_path)
 
@@ -137,17 +133,25 @@ def main() -> None:
               f"[2:v]format=rgba[bg];[bg][screen]overlay={panel_x}:{screen_y}:shortest=1[base];"
               f"[base][4:v]overlay=0:0:shortest=1[framed];"
               f"[framed][3:v]overlay=0:0:shortest=1[v]")
-        run(["ffmpeg", "-y", "-i", str(args.screen), "-i", str(args.audio), "-loop", "1", "-i", str(background_image), "-loop", "1", "-i", str(title_image), "-loop", "1", "-i", str(frame_image), "-filter_complex", fc, "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(FPS), "-c:a", "aac", "-shortest", str(body)])
+        run(["ffmpeg", "-y", "-i", str(args.screen), "-i", str(args.audio), "-loop", "1", "-i", str(background_image), "-loop", "1", "-i", str(title_image), "-loop", "1", "-i", str(frame_image), "-filter_complex", fc, "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-r", str(FPS), "-c:a", "aac", "-shortest", str(body)])
         run([
             "ffmpeg", "-y",
             "-loop", "1", "-i", str(endcard_image),
             "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
             "-map", "0:v", "-map", "1:a", "-shortest",
-            "-t", "2.5", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(ending),
+            "-t", "2.5", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", str(ending),
         ])
         list_file.write_text(f"file '{body}'\nfile '{ending}'\n")
         run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file), "-c", "copy", str(args.out)])
-    print(f"Wrote draft composition: {args.out}.")
+    manifest_path = args.out.with_suffix(".render.json")
+    manifest_path.write_text(json.dumps({
+        "kind": "her-ai-clean-reel",
+        "format": args.format,
+        "background": args.background,
+        "background_hex": color,
+        "video_style": "assets/brand/tokens/reel-video-style.json",
+    }, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote draft composition: {args.out}.\nWrote render manifest: {manifest_path}.")
 
 
 if __name__ == "__main__":

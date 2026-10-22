@@ -14,23 +14,56 @@ def duration(path: Path) -> float:
     return float(result.stdout.strip())
 
 
+LANGUAGES = ("en", "nl")
+
+
+def detect_language(script: Path) -> str | None:
+    """Read the language from a script name like script.nl.txt."""
+    suffixes = [s.lstrip(".").lower() for s in script.suffixes]
+    for lang in LANGUAGES:
+        if lang in suffixes:
+            return lang
+    return None
+
+
+def resolve_voice(language: str, override: str | None) -> tuple[str | None, str]:
+    """Return (voice_id, source). Language-specific ID first, then the legacy single ID."""
+    if override:
+        return override, "--voice-id"
+    lang_var = f"ELEVENLABS_VOICE_ID_{language.upper()}"
+    if os.getenv(lang_var):
+        return os.getenv(lang_var), lang_var
+    if os.getenv("ELEVENLABS_VOICE_ID"):
+        return os.getenv("ELEVENLABS_VOICE_ID"), "ELEVENLABS_VOICE_ID (fallback)"
+    return None, lang_var
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--script", required=True, type=Path)
     ap.add_argument("--out-dir", required=True, type=Path)
     ap.add_argument("--timeline", type=Path)
     ap.add_argument("--pause", type=float, default=.35)
+    ap.add_argument("--language", choices=LANGUAGES,
+                    help="Narration language. Defaults to the script name (script.nl.txt -> nl), else en.")
+    ap.add_argument("--voice-id", help="One-off ElevenLabs voice ID that overrides .env.")
     args = ap.parse_args()
     load()
-    key, voice = os.getenv("ELEVENLABS_API_KEY"), os.getenv("ELEVENLABS_VOICE_ID")
+    detected = detect_language(args.script)
+    if args.language and detected and args.language != detected:
+        raise SystemExit(f"--language {args.language} does not match the script name {args.script.name}. Check which voice you want.")
+    language = args.language or detected or "en"
+    key = os.getenv("ELEVENLABS_API_KEY")
+    voice, source = resolve_voice(language, args.voice_id)
     if not key or not voice:
-        raise SystemExit("Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID in .env or the environment.")
+        raise SystemExit(f"Set ELEVENLABS_API_KEY and {source} in .env or the environment (see .env.example).")
+    print(f"Language: {language} · voice from {source}")
     sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", args.script.read_text(encoding="utf-8").replace("\n", " ")) if s.strip()]
     args.out_dir.mkdir(parents=True, exist_ok=True)
     clips, timeline, now = [], [], .30
     for i, sentence in enumerate(sentences, 1):
         output = args.out_dir / f"{i:02d}.mp3"
-        response = requests.post(f"https://api.elevenlabs.io/v1/text-to-speech/{voice}", headers={"xi-api-key": key, "Content-Type": "application/json"}, json={"text": sentence, "model_id": os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2"), "voice_settings": {"stability": .5, "similarity_boost": .75}}, timeout=90)
+        response = requests.post(f"https://api.elevenlabs.io/v1/text-to-speech/{voice}", headers={"xi-api-key": key, "Content-Type": "application/json"}, json={"text": sentence, "model_id": os.getenv("ELEVENLABS_MODEL", "eleven_v4"), "voice_settings": {"stability": .5, "similarity_boost": .75}}, timeout=90)
         response.raise_for_status()
         output.write_bytes(response.content)
         clip_duration = duration(output)

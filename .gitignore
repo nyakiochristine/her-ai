@@ -1,5 +1,5 @@
 .env
-.env.example
+!.env.example
 session_state.json
 projects/**/raw/
 projects/**/working/

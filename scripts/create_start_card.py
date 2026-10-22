@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import random
 from pathlib import Path
 
@@ -10,11 +11,19 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
+VIDEO_STYLE = json.loads((ROOT / "assets/brand/tokens/reel-video-style.json").read_text(encoding="utf-8"))
 W, H = 1080, 1350
-GREEN = (44, 189, 122)
-DARK = (13, 64, 59)
-BEIGE = (242, 235, 225)
-LIGHT_GREEN = (190, 233, 212)
+
+
+def hex_to_rgb(value: str) -> tuple[int, int, int]:
+    value = value.lstrip("#")
+    return tuple(int(value[index:index + 2], 16) for index in (0, 2, 4))
+
+
+GREEN = hex_to_rgb(VIDEO_STYLE["backgrounds"]["bright-green"])
+DARK = hex_to_rgb(VIDEO_STYLE["text"]["on-light"])
+BEIGE = hex_to_rgb(VIDEO_STYLE["backgrounds"]["beige"])
+LIGHT_GREEN = hex_to_rgb(VIDEO_STYLE["backgrounds"]["light-green"])
 
 
 def fit_text(draw: ImageDraw.ImageDraw, text: str, font_path: Path, max_width: int, max_size: int) -> tuple[ImageFont.FreeTypeFont, list[str]]:
