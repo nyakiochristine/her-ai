@@ -4,6 +4,16 @@ An automation pipeline for producing short, branded AI-literacy reels from an ap
 
 Built as a real client workflow—not a mockup—this project demonstrates how I combine browser automation, AI media APIs, Python, and FFmpeg into practical content-production systems.
 
+## Demo
+
+<a href="./docs/demo/capcut-auto-captions-simulation.mp4">
+  <img src="./docs/demo/capcut-auto-captions-poster.jpg" alt="Play the simulated CapCut auto-captions demo" width="360">
+</a>
+
+**[Watch the narrated demo →](./docs/demo/capcut-auto-captions-simulation.mp4)**
+
+This is a clearly labelled illustrative simulation of the CapCut auto-captions workflow. It demonstrates the automated narration, simulated interaction, branded layout, and captioning pipeline without exposing a client account or recording.
+
 ## What it does
 
 - Creates concise scripts and timing plans for practical AI education.
